@@ -2041,7 +2041,7 @@ SUBROUTINE convolve(u, v, w, dennl, phinl, denavgnl, philength, phisrc)
          DO i = 0, kxmax
             ksq = kx_conv(i)*kx_conv(i) + ky_conv(j)*ky_conv(j)
 
-            cnkx(i,j) = -1.d0 * ic * kx_conv(i) * kden(i,j)     ! fourier transform is d/dx -> -ikx for DCT
+            cnkx(i,j) = -1.d0 * ic * kx_conv(i) * kden(i,j)     ! fourier transform is d/dx -> -ikx for DFT
             cnky(i,j) = -1.d0 * ic * ky_conv(j) * kden(i,j)
 
             cvex(i,j) =         ic * ky_conv(j) * kphi(i,j)     ! vx component carries an additional minus sign
