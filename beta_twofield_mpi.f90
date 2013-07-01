@@ -353,7 +353,8 @@ MODULE convolve_module
            cnky_flat,cnkx_flat, &          ! components of gradients of dn/dy
            cwx_flat,cwy_flat, &            ! vorticity gradient
            cnavgkx_flat, cnavgky_flat, &   ! components of gradients of mean field
-           cnavgkx1d_flat, cnavg1d_flat    ! mean field quantities for gradient scale length
+           cnavgkx1d_flat, cnavg1d_flat, & ! mean field quantities for gradient scale length
+           cnavg_flat                      ! local mean field quantity
 
 ! FFTW MPI transforms are in-place transforms, so extra arrays are not required
       REAL, DIMENSION(:), ALLOCATABLE :: Pol_flat, ExB_flat, denavgnl_flat, drivenl_flat
@@ -1637,6 +1638,7 @@ SUBROUTINE convolve(den_in,phi_in,denavg_in,dennl,phinl,denavgnl,drivenl)
       END IF
       IF (lm .NE. 0.0) THEN
          cnavgkx_flat = czero; cnavgky_flat = czero; drivenl_flat = 0.0
+         cnavg_flat = czero;
          cnavgkx1d_flat = czero; cnavg1d_flat = czero
       END IF
 
@@ -1654,22 +1656,23 @@ SUBROUTINE convolve(den_in,phi_in,denavg_in,dennl,phinl,denavgnl,drivenl)
                   kx = kxnorm*REAL(kxext(i)); ky = kynorm*REAL(kyext(j))
                   ksq = kx*kx + ky*ky
 
-                  cvex_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * ky * phi_in(i,j)
-                  cvey_flat((j-yinit)*nxcmplx+1+i) = ic * kx * phi_in(i,j)
+                  cvex_flat((j-yinit)*nxcmplx+1+i) =         ic * ky * phi_in(i,j)
+                  cvey_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * kx * phi_in(i,j)
 
                   IF (lp .NE. 0.0) THEN
-                     cwx_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * kx * ksq * phi_in(i,j)
-                     cwy_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * ky * ksq * phi_in(i,j)
+                     cwx_flat((j-yinit)*nxcmplx+1+i) = ic * kx * ksq * phi_in(i,j)
+                     cwy_flat((j-yinit)*nxcmplx+1+i) = ic * ky * ksq * phi_in(i,j)
                   END IF
                   IF (le .NE. 0.0) THEN
-                     cnkx_flat((j-yinit)*nxcmplx+1+i) = ic * kx * den_in(i,j)
-                     cnky_flat((j-yinit)*nxcmplx+1+i) = ic * ky * den_in(i,j)
+                     cnkx_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * kx * den_in(i,j)
+                     cnky_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * ky * den_in(i,j)
                   END IF
                   IF (lm .NE. 0.0) THEN
-                     cnavgkx_flat((j-yinit)*nxcmplx+1+i) = ic * kx * denavg_in(i,j)
-                     cnavgky_flat((j-yinit)*nxcmplx+1+i) = ic * ky * denavg_in(i,j)
+                     cnavgkx_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * kx * denavg_in(i,j)
+                     cnavgky_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * ky * denavg_in(i,j)
+                     cnavg_flat((j-yinit)*nxcmplx+1+i) = denavg_in(i,j)
                      IF (kyext(j) .EQ. 0) THEN             ! output only ky = 0 modes for gradient scale length. However, this is a 2D transform to maintain the form.
-                        cnavgkx1d_flat((j-yinit)*nxcmplx+1+i) = ic * kx * denavg_in(i,j)
+                        cnavgkx1d_flat((j-yinit)*nxcmplx+1+i) = -1.d0 * ic * kx * denavg_in(i,j)
                         cnavg1d_flat((j-yinit)*nxcmplx+1+i) = denavg_in(i,j)
                      END IF
                   END IF
@@ -1737,6 +1740,7 @@ SUBROUTINE convolve(den_in,phi_in,denavg_in,dennl,phinl,denavgnl,drivenl)
       IF (lm .NE. 0.0) THEN
          CALL RFFTWND_F77_MPI(planb,1,cnavgkx_flat,workarr,1,FFTW_NORMAL_ORDER)
          CALL RFFTWND_F77_MPI(planb,1,cnavgky_flat,workarr,1,FFTW_NORMAL_ORDER)
+         CALL RFFTWND_F77_MPI(planb,1,cnavg_flat,workarr,1,FFTW_NORMAL_ORDER)
          CALL RFFTWND_F77_MPI(planb,1,cnavgkx1d_flat,workarr,1,FFTW_NORMAL_ORDER)
          CALL RFFTWND_F77_MPI(planb,1,cnavg1d_flat,workarr,1,FFTW_NORMAL_ORDER)
          
@@ -1744,6 +1748,8 @@ SUBROUTINE convolve(den_in,phi_in,denavg_in,dennl,phinl,denavgnl,drivenl)
               + TRANSFER(cvey_flat,(/ 0.d0 /)) * TRANSFER(cnavgky_flat,(/ 0.d0 /))       
          drivenl_flat = -1.d0*TRANSFER(cvex_flat,(/ 0.d0 /)) * TRANSFER(cnavgkx1d_flat,(/ 0.d0 /)) &
               / TRANSFER(cnavg1d_flat,(/ 0.d0 /))
+!         drivenl_flat = -1.d0*TRANSFER(cvex_flat,(/ 0.d0 /)) * TRANSFER(cnavgkx_flat,(/ 0.d0 /)) &  ! nonlinear drive with local gradients
+!              / TRANSFER(cnavg_flat,(/ 0.d0 /))
          
          CALL RFFTWND_F77_MPI(planf,1,denavgnl_flat,workarr,1,FFTW_NORMAL_ORDER)              ! Back to Fourier space . . .
          CALL RFFTWND_F77_MPI(planf,1,drivenl_flat,workarr,1,FFTW_NORMAL_ORDER)
@@ -2642,6 +2648,7 @@ SUBROUTINE ALLOC_DATA
          IF (lm .NE. 0.0) THEN   ! if mean field flag is on
             ALLOCATE( cnavgky_flat(ncmplxfft) ); ALLOCATE( cnavgkx_flat(ncmplxfft) )
             ALLOCATE( cnavgkx1d_flat(ncmplxfft) ); ALLOCATE( cnavg1d_flat(ncmplxfft) )
+            ALLOCATE( cnavg_flat(ncmplxfft) )
             ALLOCATE(denavgnl_flat(local_size)); ALLOCATE(drivenl_flat(local_size))
             IF (pid .EQ. blacksheep) WRITE(6,'(/a/)') "ExB non-linearity on mean field enabled."
          END IF

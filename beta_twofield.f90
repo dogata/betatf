@@ -2041,20 +2041,20 @@ SUBROUTINE convolve(u, v, w, dennl, phinl, denavgnl, philength, phisrc)
          DO i = 0, kxmax
             ksq = kx_conv(i)*kx_conv(i) + ky_conv(j)*ky_conv(j)
 
-            cnkx(i,j) = ic * kx_conv(i) * kden(i,j)     ! fourier transform is d/dx -> -ikx
-            cnky(i,j) = ic * ky_conv(j) * kden(i,j)
+            cnkx(i,j) = -1.d0 * ic * kx_conv(i) * kden(i,j)     ! fourier transform is d/dx -> -ikx for DCT
+            cnky(i,j) = -1.d0 * ic * ky_conv(j) * kden(i,j)
 
-            cvex(i,j) = -1.d0 * ic * ky_conv(j) * kphi(i,j)     ! vx component carries an additional minus sign
-            cvey(i,j) =         ic * kx_conv(i) * kphi(i,j)
+            cvex(i,j) =         ic * ky_conv(j) * kphi(i,j)     ! vx component carries an additional minus sign
+            cvey(i,j) = -1.d0 * ic * kx_conv(i) * kphi(i,j)
 
-            cphix(i,j) = -1.d0 * ic * kx_conv(i) * ksq * kphi(i,j)
-            cphiy(i,j) = -1.d0 * ic * ky_conv(j) * ksq * kphi(i,j)
+            cphix(i,j) = ic * kx_conv(i) * ksq * kphi(i,j)
+            cphiy(i,j) = ic * ky_conv(j) * ksq * kphi(i,j)
 
-            cnavgkx(i,j) = ic * kx_conv(i) * kdenavg(i,j)
-            cnavgky(i,j) = ic * ky_conv(j) * kdenavg(i,j)
+            cnavgkx(i,j) = -1.d0 * ic * kx_conv(i) * kdenavg(i,j)
+            cnavgky(i,j) = -1.d0 * ic * ky_conv(j) * kdenavg(i,j)
 
             IF (j .EQ. 0) THEN
-               cnavgkx1d(i,j) = ic * kx_conv(i) * kdenavg(i,j)
+               cnavgkx1d(i,j) = -1.d0 * ic * kx_conv(i) * kdenavg(i,j)
                kdenavg1d(i,j) = kdenavg(i,j)
             END IF
 
